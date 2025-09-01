@@ -1,0 +1,27 @@
+
+@startuml
+title Flujo Crear Orden - Coreografía (Event-driven)
+
+actor Cliente
+participant "API Gateway" as APIGW
+participant "Order Service" as Orders
+participant "Message Broker" as Broker
+participant "Catalog Service" as Catalog
+participant "Payment Service" as Payment
+
+Cliente -> APIGW : POST /orders
+APIGW -> Orders : Crear Orden (estado=PENDING)
+Orders -> Orders : Persistir orden
+Orders -> Broker : Publicar evento "OrderCreated"
+
+Broker -> Catalog : "OrderCreated"
+Catalog -> Catalog : Reservar stock
+Catalog -> Broker : Publicar evento "StockReserved/StockFailed"
+
+Broker -> Payment : "OrderCreated" o "StockReserved"
+Payment -> Payment : Procesar pago
+Payment -> Broker : Publicar evento "PaymentConfirmed/PaymentFailed"
+
+Broker -> Orders : "StockReserved/Failed", "PaymentConfirmed/Failed"
+Orders -> Orders : Actualizar estado a PAID o CANCELLED
+@enduml

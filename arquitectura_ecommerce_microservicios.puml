@@ -1,0 +1,80 @@
+
+@startuml
+title Arquitectura de Alto Nivel - Migración a Microservicios (E-commerce)
+
+skinparam componentStyle rectangle
+skinparam rectangle {
+  BorderColor black
+  ArrowColor black
+}
+
+actor "Usuario Web/Móvil" as user
+
+rectangle "Frontends" as FE {
+  [Web SPA (React/Angular)]
+  [App Móvil]
+}
+
+rectangle "Perímetro" as DMZ {
+  [API Gateway / Ingress]
+  [WAF / Rate Limiter]
+}
+
+rectangle "Plataforma" as PLATFORM {
+  [Discovery Service (e.g., Consul/Eureka)]
+  [Config Server]
+  [Observability (Logs/Traces/Metrics)]
+  [CI/CD Pipeline]
+}
+
+rectangle "Seguridad" as SEC {
+  [Auth Server (OIDC/OAuth2 - p.ej. Keycloak)]
+}
+
+rectangle "Mensajería" as MSG {
+  [Message Broker (Kafka/RabbitMQ)]
+}
+
+rectangle "Microservicios" as MS {
+  component "Catalog Service" as Catalog
+  component "User Service" as Users
+  component "Order Service" as Orders
+}
+
+database "DB Catalog" as DBc
+database "DB Users" as DBu
+database "DB Orders" as DBo
+
+FE -down-> DMZ
+user --> FE
+DMZ --> MS
+DMZ --> SEC
+
+SEC --> Users : Token Introspection / JWKS
+SEC --> Orders : Token Introspection / JWKS
+SEC --> Catalog : Token Introspection / JWKS
+
+Orders --> MSG : Publish Domain Events\n(OrderCreated, OrderPaid, ...)
+Catalog --> MSG : Subscribe: StockReserved/Released
+Users --> MSG : Subscribe: UserCreated/Updated (opc.)
+
+Catalog --> DBc
+Users --> DBu
+Orders --> DBo
+
+Orders -right-> Catalog : REST: Consultar Stock\n(consulta síncrona con timeout + CB)
+Orders -down-> Users : REST: Validar Cuenta\n(consulta síncrona con timeout + CB)
+
+MS -[hidden]- PLATFORM
+PLATFORM -down-> MS : Service Registry / Config\nDistributed Tracing
+
+note right of Orders
+SAGA (coreografía) para "Crear Orden":
+1) POST /orders (REST) -> crea orden "PENDING"
+2) Orders emite "OrderCreated" (evento)
+3) Catalog reserva stock (evento "StockReserved")
+4) Payment (ext.) confirma pago (evento "PaymentConfirmed")
+5) Orders cambia estado a "PAID" o "CANCELLED"
+end note
+
+@enduml

@@ -1,0 +1,34 @@
+
+@startuml
+title Flujo Crear Orden - Orquestación (Workflow central)
+
+actor Cliente
+participant "API Gateway" as APIGW
+participant "Order Orchestrator" as Orchestrator
+participant "Order Service" as Orders
+participant "Catalog Service" as Catalog
+participant "Payment Service" as Payment
+
+Cliente -> APIGW : POST /orders
+APIGW -> Orchestrator : Iniciar flujo crear orden
+
+Orchestrator -> Orders : Crear orden (estado=PENDING)
+Orders -> Orchestrator : OK
+
+Orchestrator -> Catalog : reserveStock()
+Catalog -> Orchestrator : OK / Falla
+
+alt Reserva OK
+    Orchestrator -> Payment : charge()
+    Payment -> Orchestrator : OK / Falla
+
+    alt Pago OK
+        Orchestrator -> Orders : Actualizar estado=PAID
+    else Pago Falla
+        Orchestrator -> Catalog : releaseStock()
+        Orchestrator -> Orders : Actualizar estado=CANCELLED
+    end
+else Reserva Falla
+    Orchestrator -> Orders : Actualizar estado=CANCELLED
+end
+@enduml
