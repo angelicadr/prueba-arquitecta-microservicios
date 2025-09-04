@@ -85,5 +85,4 @@ Esto producirá archivos `.png` en la misma carpeta.
 
 ## Autor
 **Angélica Duarte** – Arquitecta de Software y Líder Técnica.
-**Angélica Duarte** – Arquitecta de Software y Líder Técnico.
 
